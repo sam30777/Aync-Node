@@ -12,4 +12,6 @@ Async-Node example
 
  eventCheck --> for set immediate 
 
+ delete bool - > async.auto
+
 
