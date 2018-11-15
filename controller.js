@@ -21,6 +21,7 @@ function generateAccessToken() {
 
 // async.waterfall
 function resgisterUser(userDetails,callback){
+    console.log('user details are these->',userDetails);
     let  userName  = userDetails.userName;
     let email     = userDetails.email;
     let phoneNumber = userDetails.phoneNumber ;
