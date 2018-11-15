@@ -17,6 +17,7 @@ const controller = require('./controller');
 
 
 app.post('/registerUser',(req,res)=>{
+    console.log('in register user--->',req.body);
     controller.resgisterUser(req.body,(err,response)=>{
         if(err){
            responses.sendError(res,err);
