@@ -74,7 +74,7 @@ async function loginUser(userDetails){
         let user = await checkIfUserExists(userDetails.email);
         
         if(user){
-            if(user.paswword == userDetails.paswword){
+            if(user.password == userDetails.password){
                 return user ;
             }else{
                 throw 'Password is inccorrect' ;
