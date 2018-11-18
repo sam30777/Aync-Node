@@ -4,7 +4,7 @@ let {USER} = require('./user');
 let {BOOK} = require('./book');
 
 let Promise = require('bluebird');
-
+const async = require('async');
 const EVENTEMITTER = require('events');
 
 const e = new EVENTEMITTER();
