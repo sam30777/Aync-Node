@@ -126,7 +126,7 @@ function addBook(payload){
         Promise.coroutine(function*(){
             let user = yield authenticateAccessTokenPromisified(payload.accessToken);
             if(user){
-                book = new Book();
+                book = new BOOK();
                 book.bookName = payload.bookName ;
                 book.author = payload.author ;
                 book.addedBy = user._id
