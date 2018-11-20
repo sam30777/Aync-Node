@@ -217,7 +217,9 @@ function pickBookForReading(payload,callback){
 function getUserInforMation(userId,cb){
     USER.findOne({_id : userId},(error,result)=>{
         if(error){
-            cb('S')
+            cb('Something went wrong')
+        }else {
+            cb(null,result)
         }
     })
 }
