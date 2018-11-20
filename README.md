@@ -15,3 +15,13 @@ Async-Node example
  delete bool - > async.auto
 
 
+......
+
+api checkDelayed book have setImmediate implementation
+
+api pickBookForReading have async.auto which have parallel case also now
+
+console error and decalring var issue fixed
+
+
+

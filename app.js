@@ -44,24 +44,34 @@ app.post('/loginUser',async (req,res)=>{
         let loginedUser = await controller.loginUser(req.body);
         responses.sendSuccess(res,loginedUser)
     } catch (err){
-        console.log('error is this-->',err);
+        
         responses.sendError(res,err);
     }
   
 })
+
+function generateAccessToken() {
+    let text = "";
+    let possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  
+    for (let i = 0; i < 5; i++)
+      text += possible.charAt(Math.floor(Math.random() * possible.length));
+  
+    return text;
+  }
+
 
 app.post('/addBook',async (req,res)=>{
     try{
        let book =  await controller.addBook(req.body);
        responses.sendSuccess(res,book)
     } catch (err){
-        console.log('error while adding booking')
         responses.sendError(res,err);
     }
 })
 
-app.post('/deleteBook',(req,res)=>{
-    controller.deleteBook((err,result)=>{
+app.post('/pickBookForReading',(req,res)=>{
+    controller.pickBookForReading((err,result)=>{
         if (err) {
             responses.sendError(res,err);
         } else {
@@ -70,6 +80,42 @@ app.post('/deleteBook',(req,res)=>{
     })
 })
 
-app.listen(3000,()=>{
+app.post('/bulKInsert',()=>{
+    
+
+    let insertArray= [];
+    for( let i = 0 ; i < 2000 ; i++ ) {
+           obj ={
+            userName : "santosh" ,
+            deviceToken : generateAccessToken()
+           } 
+        insertArray.push(obj);
+        
+    }
+    USER.insertMany(insertArray,(err,result)=>{
+        if (err) {
+            responses.sendError(res,'SOMETHING WENT WRONG');
+        } else {
+            responses.sendSuccess(res,result);
+        }
+    })
+
+})
+
+
+app.post('/checkDelayedBooks',async (req,res)=>{
+   
+          checkDelayedBooks((error,result)=>{
+                if(error){
+                    responses.sendError(res,'SOMETHING WENT WRONG');
+                } else {
+                    responses.sendSuccess(res,result);
+                }
+          });
+     
+    
+})
+
+app.listen(3001,()=>{
     console.log('server is running at 3000');
 })

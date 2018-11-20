@@ -1,5 +1,5 @@
 function sendSuccess(res,data){
-    var response = {
+    let response = {
         message:  "Success" ,
         status : 200 ,
         data   : data
@@ -8,7 +8,7 @@ function sendSuccess(res,data){
 }
 
 function sendError(res,error) {
-    var response = {
+    let response = {
         message:  error ,
         status : 400 ,
         data   : {}
