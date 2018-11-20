@@ -1,19 +1,24 @@
 
-let {USER} = require('./user');
+const {USER} = require('./user');
 
-let {BOOK} = require('./book');
+const {BOOK} = require('./book');
+
+let moment = require('moment');
 
 let Promise = require('bluebird');
-
+const async = require('async');
 const EVENTEMITTER = require('events');
 
+const {MAPPING} = require('./bookAndStudentMapping');
+
+const {PENALTY} = require('./penalties');
 const e = new EVENTEMITTER();
 
 function generateAccessToken() {
-    var text = "";
-    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let text = "";
+    let possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   
-    for (var i = 0; i < 5; i++)
+    for (let i = 0; i < 5; i++)
       text += possible.charAt(Math.floor(Math.random() * possible.length));
   
     return text;
@@ -21,6 +26,7 @@ function generateAccessToken() {
 
 // async.waterfall
 function resgisterUser(userDetails,callback){
+    console.log('user details are these->',userDetails);
     let  userName  = userDetails.userName;
     let email     = userDetails.email;
     let phoneNumber = userDetails.phoneNumber ;
@@ -73,7 +79,7 @@ async function loginUser(userDetails){
         let user = await checkIfUserExists(userDetails.email);
         
         if(user){
-            if(user.paswword == userDetails.paswword){
+            if(user.password == userDetails.password){
                 return user ;
             }else{
                 throw 'Password is inccorrect' ;
@@ -82,7 +88,6 @@ async function loginUser(userDetails){
             throw 'User not found';
         }
     } catch (err){
-        console.log('error while login',err);
         throw err;
     }
     
@@ -94,7 +99,6 @@ function checkIfUserExists(email){
     return new Promise((resolve,reject)=>{
             USER.findOne({email:email},(err,result)=>{
                 if(err){
-                    console.log('erro while getting user',err);
                     reject('Someting went wrong');
                 } else {
                     resolve(user);
@@ -125,7 +129,7 @@ function addBook(payload){
         Promise.coroutine(function*(){
             let user = yield authenticateAccessTokenPromisified(payload.accessToken);
             if(user){
-                book = new Book();
+                book = new BOOK();
                 book.bookName = payload.bookName ;
                 book.author = payload.author ;
                 book.addedBy = user._id
@@ -135,10 +139,10 @@ function addBook(payload){
                throw 'User not auterised'
             }
         }).then((result)=>{
-            console.log('result of coroutine-->',result);
+           
             resolve(result);
         }).catch((error)=>{
-            console.log("error in corotoutine-->",error);
+           
             reject(error)
         })
     })
@@ -147,7 +151,7 @@ function addBook(payload){
 
 
 // async.auto.....
-function deleteBook(payload,callback){
+function pickBookForReading(payload,callback){
     async.auto({
         authenticateAccessToken : function(cb){
             authenticateAccessToken(payload.accessToken,(err,result)=>{
@@ -158,15 +162,47 @@ function deleteBook(payload,callback){
                 }
             })
         },
-        deleteBook :[ 'authenticateAccessToken',
-            function(result,cb){
-                USER.remove({_id:payload.bookId},(err,response)=>{
+        checkIfBookIsAlreadyPicked :[ 'authenticateAccessToken' ,
+            function( result,cb){
+                BOOK.findOne({_id : payload.bookId },(err,resultedBook)=>{
                     if(err){
-                         cb('Something went wrong');
-                    }else{
-                        cb(null,response);
+                        cb('Something went wrong')
+                    } else {
+                       if(!resultedBook) {
+                            cb('book not found')
+                       } else if (resultedBook.isBookedForReading){
+                           cb('Book is not available');
+                       }else{
+                           cb(null,resultedBook);
+                       }
                     }
                 })
+            }
+        ],
+        checkUserLimit : ['authenticateAccessToken',
+            function(result , cb) {
+                BOOK.find({ assignedToUser : mongoose.Types.ObjectId(payload.userId)},(error,bookData)=>{
+                    if(error) {
+                        cb('Something went wrong')
+                    } else if(bookData && bookData.length > 4) {
+                            cb('You cannot have more than 4 books return some books to pick new');
+                        }  else {
+                            cb(null,mapingData);
+                        }
+                     
+                })
+            }
+    
+        ],
+        assignBookToUser :[ 'checkIfBookIsAlreadyPicked', 'checkUserLimit' ,
+            function(resultsArray,cb){
+              BOOK.update({_id : bookId},(error,book)=>{
+                    if(error){
+                        cb('SOMETHING WENT  WRONG');
+                    }else {
+                        cb(null,book);
+                    }
+              })
             }
 
         ]
@@ -177,32 +213,122 @@ function deleteBook(payload,callback){
     })
 }
 
-
-function setImmediateExample(){
-e.on('event-1',()=>{
-    console.log('event-1 is this');
-})
-
-e.on('event-2',()=>{
-    console.log('event-2 is this');
-})
-
-e.on('event-3',()=>{
-    console.log('event-3 is this');
-})
-
-e.emit('event-1');
-e.emit('event-2');
-e.emit('event-3');
-
+function getUserInforMation(userId,cb){
+    USER.findOne({_id : userId},(error,result)=>{
+        if(error){
+            cb('S')
+        }
+    })
 }
+/*
+
+
+setimmediate can be used inside heavy i/o insentives task to shedule some callbacks
+off the i/o loop so that  the i/o will not be blocked and work in optimized way
+
+checkDelayedBooks function is used for checking the delayed books .
+Inside the stream reading , major priority task is to send push notifications to users
+if they have not returned the book before expiry date.along with that there can be many tasks that we
+have to perform for user like i am saving a penalty for user which  he/she have to pay when returning the book.
+So, if we we are performing all tasks inside the i/o phase itself for let's assume millio records then there are chances that
+some evens of i/o loop start delaying , so we can priotize the task that we want to ecexute in that loop
+and shedule the other tasks using setImmediate . Now all the tasks other then priotized task will be queued
+in setImmdeaite queue and will execute immediately after the all i/o callbacks are executed .
+
+*/
+
+ function checkDelayedBooks(callback){
+
+
+        let stream = USER.find({}).limit().cursor() ; 
+        let promiseArray = [] ;
+        let stream = USER.find({}).cursor() ;
+       let perThousandUser = [] ;
+       let i = 0;
+
+
+
+    stream.on('data',(doc)=>{
+     console.log('doc is this-->',doc);
+       let book  = doc ;
+       let today = moment();
+
+       if(book.isBookedForReading && moment(doc.bookReturnedDate).isAfter(today)) {
+           
+            getUserInforMation(book.assignedToUser,(eror,user)=>{
+                if(error){
+                    callback(error);
+                }
+                if( i < 1000){
+                    perThousandUser.push(user.deviceToken);
+                    i++ ;
+                } else {
+                    promiseArray.push(fcmPush.sendFcmPush(perThousandUser,"PLease return the book"));
+                    perThousandUser = [];
+                    i = 0;
+                }   
+            })
+             let userID = book.assignedToUser;
+             let book_id = book._id ;
+             let bookAmount = book.book_amount ;
+            setImmediate((userID,book_id,bookAmount)=>{
+               let penalty = new PENALTY();
+               penalty.user_id = user_id;
+               penalty.penaltyForBook = book_id;
+               penalty.penaltyAmount = book_amount
+               penalty.save((error, response) => {
+                   if (error) { } else { console.log('penalty locked for user' + user_id) }
+               })
+           }); 
+       }  
+    })
+
+    stream.on('end',()=>{
+         if(perThousandUser.length > 0){
+            promiseArray.push(fcmPush.sendFcmPush(perThousandUser,"Welcome to app"));
+        }
+        Promise.all(promiseArray).then(()=>{
+            callback(null,{});
+        }).catch((err)=>{
+            throw err ;
+        })
+
+    })
+}
+ 
+async function performOperationOnUser(user_id,book_id,book_amount){
+    
+}
+
+
+
+// function setImmediateExample(){
+// e.on('event-1',()=>{
+//     console.log('event-1 is this');
+// })
+
+// e.on('event-2',()=>{
+//     console.log('event-2 is this');
+// })
+
+// e.on('event-3',()=>{
+//     console.log('event-3 is this');
+// })
+
+// e.emit('event-1');
+// e.emit('event-2');
+// e.emit('event-3');
+
+// }
 
 
 module.exports = {
     resgisterUser,
     loginUser ,
     addBook ,
-    deleteBook ,
-    setImmediateExample
+    pickBookForReading ,
+    setImmediateExample ,
+    pickBookForReading ,
+    checkDelayedBooks
     
 }
