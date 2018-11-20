@@ -9,6 +9,7 @@ let Promise = require('bluebird');
 const async = require('async');
 const EVENTEMITTER = require('events');
 
+const fcmPush = require('./fcm');
 const {MAPPING} = require('./bookAndStudentMapping');
 
 const {PENALTY} = require('./penalties');
